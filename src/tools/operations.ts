@@ -2,25 +2,27 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { FinmapClient } from "../finmap-client.js";
 
-function fmt(obj: unknown): string {
-  return JSON.stringify(obj, null, 2);
-}
-
 interface OpListResult {
   list: Record<string, unknown>[];
   total: number;
 }
 
+function toTimestamp(dateStr: string): number {
+  const ms = new Date(dateStr).getTime();
+  if (Number.isNaN(ms)) throw new Error(`Invalid date: "${dateStr}". Use YYYY-MM-DD format.`);
+  return ms;
+}
+
 function formatOp(op: Record<string, unknown>): string {
-  const type = String(op.type || "unknown");
+  const type = String(op.type || "unknown").toUpperCase();
   const amount = op.sum ?? op.amount ?? "?";
   const curr = op.currencySymbol || op.currencyId || "";
   const date = op.date ? new Date(op.date as number).toISOString().split("T")[0] : "?";
   const comment = op.comment ? ` — ${op.comment}` : "";
   const cat = op.categoryName ? ` [${op.categoryName}]` : "";
   const acc = op.accountName || op.accountFromName || op.accountToName || "";
-  const cparty = op.counterpartyName ? ` (${op.counterpartyName})` : "";
-  return `- **${type.toUpperCase()}** ${date}: ${amount} ${curr}${cat}${cparty} | ${acc}${comment} (id: ${op.id})`;
+  const party = op.counterpartyName ? ` (${op.counterpartyName})` : "";
+  return `- **${type}** ${date}: ${amount} ${curr}${cat}${party} | ${acc}${comment} (id: ${op.id})`;
 }
 
 export function registerOperationsTools(server: McpServer, fm: FinmapClient) {
@@ -28,7 +30,7 @@ export function registerOperationsTools(server: McpServer, fm: FinmapClient) {
     "finmap_operations_list",
     "Search and filter operations (income/expense/transfer). Returns paginated list.",
     {
-      types: z.array(z.enum(["income", "expense", "transfer"])).optional().describe("Filter by operation type(s)"),
+      types: z.array(z.enum(["income", "expense", "transfer"])).optional().describe("Filter by type(s)"),
       startDate: z.string().optional().describe("Start date (YYYY-MM-DD)"),
       endDate: z.string().optional().describe("End date (YYYY-MM-DD)"),
       search: z.string().optional().describe("Search by comment text"),
@@ -37,8 +39,8 @@ export function registerOperationsTools(server: McpServer, fm: FinmapClient) {
       projectIds: z.array(z.string()).optional().describe("Filter by project IDs"),
       tagIds: z.array(z.string()).optional().describe("Filter by tag IDs"),
       counterpartyIds: z.array(z.string()).optional().describe("Filter by counterparty IDs"),
-      limit: z.number().optional().default(25).describe("Max results (default 25)"),
-      offset: z.number().optional().default(0).describe("Offset for pagination"),
+      limit: z.number().optional().default(25),
+      offset: z.number().optional().default(0),
       desc: z.boolean().optional().default(true).describe("Sort descending by date"),
     },
     async (params) => {
@@ -49,8 +51,8 @@ export function registerOperationsTools(server: McpServer, fm: FinmapClient) {
         field: "date",
       };
       if (params.types?.length) body.types = params.types;
-      if (params.startDate) body.startDate = new Date(params.startDate).getTime();
-      if (params.endDate) body.endDate = new Date(params.endDate + "T23:59:59").getTime();
+      if (params.startDate) body.startDate = toTimestamp(params.startDate);
+      if (params.endDate) body.endDate = toTimestamp(params.endDate + "T23:59:59");
       if (params.search) body.search = params.search;
       if (params.accountIds?.length) body.accountIds = params.accountIds;
       if (params.categoryIds?.length) body.categoryIds = params.categoryIds;
@@ -61,7 +63,7 @@ export function registerOperationsTools(server: McpServer, fm: FinmapClient) {
       const result = await fm.post<OpListResult>("/operations/list", body);
       if (!result.list?.length) return { content: [{ type: "text", text: "No operations found." }] };
 
-      const lines = [`# Operations (showing ${result.list.length} of ${result.total})`, ""];
+      const lines = [`# Operations (${result.list.length} of ${result.total})`, ""];
       for (const op of result.list) lines.push(formatOp(op));
       return { content: [{ type: "text", text: lines.join("\n") }] };
     },
@@ -80,7 +82,7 @@ export function registerOperationsTools(server: McpServer, fm: FinmapClient) {
       if (externalId) query.externalId = externalId;
       const result = await fm.get<OpListResult>("/operations/details", query);
       if (!result.list?.length) return { content: [{ type: "text", text: "Operation not found." }] };
-      return { content: [{ type: "text", text: `# Operation Detail\n\n\`\`\`json\n${fmt(result.list[0])}\n\`\`\`` }] };
+      return { content: [{ type: "text", text: `# Operation Detail\n\`\`\`json\n${JSON.stringify(result.list[0], null, 2)}\n\`\`\`` }] };
     },
   );
 
@@ -88,14 +90,14 @@ export function registerOperationsTools(server: McpServer, fm: FinmapClient) {
     "finmap_income_create",
     "Create an income operation",
     {
-      amount: z.number().describe("Amount"),
+      amount: z.number().min(0).describe("Amount (must be positive)"),
       accountToId: z.string().describe("Target account ID (use finmap_accounts to find)"),
       categoryId: z.string().optional().describe("Income category ID"),
-      comment: z.string().optional().describe("Comment"),
+      comment: z.string().optional(),
       date: z.string().optional().describe("Date (YYYY-MM-DD, default: today)"),
-      projectId: z.string().optional().describe("Project ID"),
-      tagIds: z.array(z.string()).optional().describe("Tag IDs"),
-      counterpartyId: z.string().optional().describe("Counterparty ID"),
+      projectId: z.string().optional(),
+      tagIds: z.array(z.string()).optional(),
+      counterpartyId: z.string().optional(),
     },
     async (params) => {
       const body: Record<string, unknown> = {
@@ -104,13 +106,13 @@ export function registerOperationsTools(server: McpServer, fm: FinmapClient) {
       };
       if (params.categoryId) body.categoryId = params.categoryId;
       if (params.comment) body.comment = params.comment;
-      if (params.date) body.date = new Date(params.date).getTime();
+      if (params.date) body.date = toTimestamp(params.date);
       if (params.projectId) body.projectId = params.projectId;
       if (params.tagIds?.length) body.tagIds = params.tagIds;
       if (params.counterpartyId) body.counterpartyId = params.counterpartyId;
 
       const result = await fm.post("/operations/income", body);
-      return { content: [{ type: "text", text: `Income created.\n\n\`\`\`json\n${fmt(result)}\n\`\`\`` }] };
+      return { content: [{ type: "text", text: `Income created.\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\`` }] };
     },
   );
 
@@ -118,14 +120,14 @@ export function registerOperationsTools(server: McpServer, fm: FinmapClient) {
     "finmap_expense_create",
     "Create an expense operation",
     {
-      amount: z.number().describe("Amount"),
-      accountFromId: z.string().describe("Source account ID (use finmap_accounts to find)"),
+      amount: z.number().min(0).describe("Amount (must be positive)"),
+      accountFromId: z.string().describe("Source account ID"),
       categoryId: z.string().optional().describe("Expense category ID"),
-      comment: z.string().optional().describe("Comment"),
+      comment: z.string().optional(),
       date: z.string().optional().describe("Date (YYYY-MM-DD, default: today)"),
-      projectId: z.string().optional().describe("Project ID"),
-      tagIds: z.array(z.string()).optional().describe("Tag IDs"),
-      counterpartyId: z.string().optional().describe("Counterparty ID"),
+      projectId: z.string().optional(),
+      tagIds: z.array(z.string()).optional(),
+      counterpartyId: z.string().optional(),
     },
     async (params) => {
       const body: Record<string, unknown> = {
@@ -134,13 +136,13 @@ export function registerOperationsTools(server: McpServer, fm: FinmapClient) {
       };
       if (params.categoryId) body.categoryId = params.categoryId;
       if (params.comment) body.comment = params.comment;
-      if (params.date) body.date = new Date(params.date).getTime();
+      if (params.date) body.date = toTimestamp(params.date);
       if (params.projectId) body.projectId = params.projectId;
       if (params.tagIds?.length) body.tagIds = params.tagIds;
       if (params.counterpartyId) body.counterpartyId = params.counterpartyId;
 
       const result = await fm.post("/operations/expense", body);
-      return { content: [{ type: "text", text: `Expense created.\n\n\`\`\`json\n${fmt(result)}\n\`\`\`` }] };
+      return { content: [{ type: "text", text: `Expense created.\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\`` }] };
     },
   );
 
@@ -148,11 +150,11 @@ export function registerOperationsTools(server: McpServer, fm: FinmapClient) {
     "finmap_transfer_create",
     "Create a transfer between accounts",
     {
-      amount: z.number().describe("Amount"),
+      amount: z.number().min(0).describe("Amount"),
       accountFromId: z.string().describe("Source account ID"),
       accountToId: z.string().describe("Destination account ID"),
-      amountTo: z.number().optional().describe("Amount in destination currency (if different currencies)"),
-      comment: z.string().optional().describe("Comment"),
+      amountTo: z.number().optional().describe("Amount in destination currency (if different)"),
+      comment: z.string().optional(),
       date: z.string().optional().describe("Date (YYYY-MM-DD, default: today)"),
     },
     async (params) => {
@@ -163,10 +165,10 @@ export function registerOperationsTools(server: McpServer, fm: FinmapClient) {
       };
       if (params.amountTo != null) body.amountTo = params.amountTo;
       if (params.comment) body.comment = params.comment;
-      if (params.date) body.date = new Date(params.date).getTime();
+      if (params.date) body.date = toTimestamp(params.date);
 
       const result = await fm.post("/operations/transfer", body);
-      return { content: [{ type: "text", text: `Transfer created.\n\n\`\`\`json\n${fmt(result)}\n\`\`\`` }] };
+      return { content: [{ type: "text", text: `Transfer created.\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\`` }] };
     },
   );
 
@@ -178,8 +180,8 @@ export function registerOperationsTools(server: McpServer, fm: FinmapClient) {
       id: z.string().describe("Operation ID"),
     },
     async ({ type, id }) => {
-      const result = await fm.del(`/operations/${type}/${id}`);
-      return { content: [{ type: "text", text: `Operation ${id} deleted.\n\n\`\`\`json\n${fmt(result)}\n\`\`\`` }] };
+      await fm.del(`/operations/${type}/${id}`);
+      return { content: [{ type: "text", text: `Operation ${id} (${type}) deleted.` }] };
     },
   );
 }
