@@ -1,6 +1,6 @@
 # Finmap MCP Server
 
-MCP server for [Finmap](https://finmap.online), a financial management platform. Work with accounts, operations, invoices, and reference data from Cursor, Claude, or any MCP-compatible client.
+MCP server for [Finmap](https://finmap.online), a financial management platform. Work with accounts, operations, invoices, and reference data from any MCP-compatible client.
 
 22 tools covering the full Finmap API v2.2.
 
@@ -12,20 +12,24 @@ MCP server for [Finmap](https://finmap.online), a financial management platform.
 ## Installation
 
 ```bash
+git clone https://github.com/hlebtkachenko/finmap-mcp.git
+cd finmap-mcp
 npm ci
 npm run build
 ```
 
 ## Configuration
 
-Add to `~/.cursor/mcp.json`:
+### Cursor
+
+`~/.cursor/mcp.json`
 
 ```json
 {
   "mcpServers": {
     "finmap": {
       "command": "node",
-      "args": ["path/to/finmap-mcp/dist/index.js"],
+      "args": ["/path/to/finmap-mcp/dist/index.js"],
       "env": {
         "FINMAP_API_KEY": "your-api-key"
       }
@@ -33,6 +37,52 @@ Add to `~/.cursor/mcp.json`:
   }
 }
 ```
+
+### Claude Desktop
+
+`claude_desktop_config.json` ([location](https://modelcontextprotocol.io/quickstart/user#1-open-your-mcp-client))
+
+```json
+{
+  "mcpServers": {
+    "finmap": {
+      "command": "node",
+      "args": ["/path/to/finmap-mcp/dist/index.js"],
+      "env": {
+        "FINMAP_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+### Claude Code
+
+`.mcp.json` in your project root, or `~/.claude.json` globally:
+
+```json
+{
+  "mcpServers": {
+    "finmap": {
+      "command": "node",
+      "args": ["/path/to/finmap-mcp/dist/index.js"],
+      "env": {
+        "FINMAP_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+### Any MCP client (stdio)
+
+The server uses `stdio` transport. Point your MCP client to:
+
+```
+node /path/to/finmap-mcp/dist/index.js
+```
+
+With the `FINMAP_API_KEY` environment variable set.
 
 ### Environment Variables
 
@@ -87,7 +137,7 @@ Add to `~/.cursor/mcp.json`:
 ## Security
 
 - 30-second timeout on all HTTP requests
-- JSON body parsing wrapped in try/catch (prevents crashes on invalid input)
+- JSON body parsing wrapped in try/catch
 - Amount fields validated as non-negative numbers
 - Date parameters validated before conversion to timestamps
 - Error responses truncated to 500 characters
