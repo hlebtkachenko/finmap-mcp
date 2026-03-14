@@ -1,16 +1,11 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { FinmapClient } from "../finmap-client.js";
+import { toTimestamp, textResult, errorResult } from "../utils.js";
 
 interface OpListResult {
   list: Record<string, unknown>[];
   total: number;
-}
-
-function toTimestamp(dateStr: string): number {
-  const ms = new Date(dateStr).getTime();
-  if (Number.isNaN(ms)) throw new Error(`Invalid date: "${dateStr}". Use YYYY-MM-DD format.`);
-  return ms;
 }
 
 function formatOp(op: Record<string, unknown>): string {
@@ -44,28 +39,32 @@ export function registerOperationsTools(server: McpServer, fm: FinmapClient) {
       desc: z.boolean().optional().default(true).describe("Sort descending by date"),
     },
     async (params) => {
-      const body: Record<string, unknown> = {
-        limit: params.limit,
-        offset: params.offset,
-        desc: params.desc,
-        field: "date",
-      };
-      if (params.types?.length) body.types = params.types;
-      if (params.startDate) body.startDate = toTimestamp(params.startDate);
-      if (params.endDate) body.endDate = toTimestamp(params.endDate + "T23:59:59");
-      if (params.search) body.search = params.search;
-      if (params.accountIds?.length) body.accountIds = params.accountIds;
-      if (params.categoryIds?.length) body.categoryIds = params.categoryIds;
-      if (params.projectIds?.length) body.projectIds = params.projectIds;
-      if (params.tagIds?.length) body.tagIds = params.tagIds;
-      if (params.counterpartyIds?.length) body.counterpartyIds = params.counterpartyIds;
+      try {
+        const body: Record<string, unknown> = {
+          limit: params.limit,
+          offset: params.offset,
+          desc: params.desc,
+          field: "date",
+        };
+        if (params.types?.length) body.types = params.types;
+        if (params.startDate) body.startDate = toTimestamp(params.startDate);
+        if (params.endDate) body.endDate = toTimestamp(params.endDate + "T23:59:59");
+        if (params.search) body.search = params.search;
+        if (params.accountIds?.length) body.accountIds = params.accountIds;
+        if (params.categoryIds?.length) body.categoryIds = params.categoryIds;
+        if (params.projectIds?.length) body.projectIds = params.projectIds;
+        if (params.tagIds?.length) body.tagIds = params.tagIds;
+        if (params.counterpartyIds?.length) body.counterpartyIds = params.counterpartyIds;
 
-      const result = await fm.post<OpListResult>("/operations/list", body);
-      if (!result.list?.length) return { content: [{ type: "text", text: "No operations found." }] };
+        const result = await fm.post<OpListResult>("/operations/list", body);
+        if (!result.list?.length) return textResult("No operations found.");
 
-      const lines = [`# Operations (${result.list.length} of ${result.total})`, ""];
-      for (const op of result.list) lines.push(formatOp(op));
-      return { content: [{ type: "text", text: lines.join("\n") }] };
+        const lines = [`# Operations (${result.list.length} of ${result.total})`, ""];
+        for (const op of result.list) lines.push(formatOp(op));
+        return textResult(lines.join("\n"));
+      } catch (err) {
+        return errorResult(err);
+      }
     },
   );
 
@@ -77,12 +76,17 @@ export function registerOperationsTools(server: McpServer, fm: FinmapClient) {
       externalId: z.string().optional().describe("External ID"),
     },
     async ({ id, externalId }) => {
-      const query: Record<string, string> = {};
-      if (id) query.id = id;
-      if (externalId) query.externalId = externalId;
-      const result = await fm.get<OpListResult>("/operations/details", query);
-      if (!result.list?.length) return { content: [{ type: "text", text: "Operation not found." }] };
-      return { content: [{ type: "text", text: `# Operation Detail\n\`\`\`json\n${JSON.stringify(result.list[0], null, 2)}\n\`\`\`` }] };
+      try {
+        if (!id && !externalId) return errorResult(new Error("Provide at least one of id or externalId."));
+        const query: Record<string, string> = {};
+        if (id) query.id = id;
+        if (externalId) query.externalId = externalId;
+        const result = await fm.get<OpListResult>("/operations/details", query);
+        if (!result.list?.length) return textResult("Operation not found.");
+        return textResult(`# Operation Detail\n\`\`\`json\n${JSON.stringify(result.list[0], null, 2)}\n\`\`\``);
+      } catch (err) {
+        return errorResult(err);
+      }
     },
   );
 
@@ -100,19 +104,23 @@ export function registerOperationsTools(server: McpServer, fm: FinmapClient) {
       counterpartyId: z.string().optional(),
     },
     async (params) => {
-      const body: Record<string, unknown> = {
-        amount: params.amount,
-        accountToId: params.accountToId,
-      };
-      if (params.categoryId) body.categoryId = params.categoryId;
-      if (params.comment) body.comment = params.comment;
-      if (params.date) body.date = toTimestamp(params.date);
-      if (params.projectId) body.projectId = params.projectId;
-      if (params.tagIds?.length) body.tagIds = params.tagIds;
-      if (params.counterpartyId) body.counterpartyId = params.counterpartyId;
+      try {
+        const body: Record<string, unknown> = {
+          amount: params.amount,
+          accountToId: params.accountToId,
+        };
+        if (params.categoryId) body.categoryId = params.categoryId;
+        if (params.comment) body.comment = params.comment;
+        if (params.date) body.date = toTimestamp(params.date);
+        if (params.projectId) body.projectId = params.projectId;
+        if (params.tagIds?.length) body.tagIds = params.tagIds;
+        if (params.counterpartyId) body.counterpartyId = params.counterpartyId;
 
-      const result = await fm.post("/operations/income", body);
-      return { content: [{ type: "text", text: `Income created.\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\`` }] };
+        const result = await fm.post("/operations/income", body);
+        return textResult(`Income created.\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\``);
+      } catch (err) {
+        return errorResult(err);
+      }
     },
   );
 
@@ -130,19 +138,23 @@ export function registerOperationsTools(server: McpServer, fm: FinmapClient) {
       counterpartyId: z.string().optional(),
     },
     async (params) => {
-      const body: Record<string, unknown> = {
-        amount: params.amount,
-        accountFromId: params.accountFromId,
-      };
-      if (params.categoryId) body.categoryId = params.categoryId;
-      if (params.comment) body.comment = params.comment;
-      if (params.date) body.date = toTimestamp(params.date);
-      if (params.projectId) body.projectId = params.projectId;
-      if (params.tagIds?.length) body.tagIds = params.tagIds;
-      if (params.counterpartyId) body.counterpartyId = params.counterpartyId;
+      try {
+        const body: Record<string, unknown> = {
+          amount: params.amount,
+          accountFromId: params.accountFromId,
+        };
+        if (params.categoryId) body.categoryId = params.categoryId;
+        if (params.comment) body.comment = params.comment;
+        if (params.date) body.date = toTimestamp(params.date);
+        if (params.projectId) body.projectId = params.projectId;
+        if (params.tagIds?.length) body.tagIds = params.tagIds;
+        if (params.counterpartyId) body.counterpartyId = params.counterpartyId;
 
-      const result = await fm.post("/operations/expense", body);
-      return { content: [{ type: "text", text: `Expense created.\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\`` }] };
+        const result = await fm.post("/operations/expense", body);
+        return textResult(`Expense created.\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\``);
+      } catch (err) {
+        return errorResult(err);
+      }
     },
   );
 
@@ -158,17 +170,21 @@ export function registerOperationsTools(server: McpServer, fm: FinmapClient) {
       date: z.string().optional().describe("Date (YYYY-MM-DD, default: today)"),
     },
     async (params) => {
-      const body: Record<string, unknown> = {
-        amount: params.amount,
-        accountFromId: params.accountFromId,
-        accountToId: params.accountToId,
-      };
-      if (params.amountTo != null) body.amountTo = params.amountTo;
-      if (params.comment) body.comment = params.comment;
-      if (params.date) body.date = toTimestamp(params.date);
+      try {
+        const body: Record<string, unknown> = {
+          amount: params.amount,
+          accountFromId: params.accountFromId,
+          accountToId: params.accountToId,
+        };
+        if (params.amountTo != null) body.amountTo = params.amountTo;
+        if (params.comment) body.comment = params.comment;
+        if (params.date) body.date = toTimestamp(params.date);
 
-      const result = await fm.post("/operations/transfer", body);
-      return { content: [{ type: "text", text: `Transfer created.\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\`` }] };
+        const result = await fm.post("/operations/transfer", body);
+        return textResult(`Transfer created.\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\``);
+      } catch (err) {
+        return errorResult(err);
+      }
     },
   );
 
@@ -180,8 +196,12 @@ export function registerOperationsTools(server: McpServer, fm: FinmapClient) {
       id: z.string().describe("Operation ID"),
     },
     async ({ type, id }) => {
-      await fm.del(`/operations/${type}/${id}`);
-      return { content: [{ type: "text", text: `Operation ${id} (${type}) deleted.` }] };
+      try {
+        await fm.del(`/operations/${type}/${id}`);
+        return textResult(`Operation ${id} (${type}) deleted.`);
+      } catch (err) {
+        return errorResult(err);
+      }
     },
   );
 }

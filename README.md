@@ -1,5 +1,9 @@
 # Finmap MCP Server
 
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Node.js Version](https://img.shields.io/badge/node-%3E%3D20-brightgreen)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
+
 MCP server for [Finmap](https://finmap.online), a financial management platform. Work with accounts, operations, invoices, and reference data from any MCP-compatible client.
 
 22 tools covering the full Finmap API v2.2.
