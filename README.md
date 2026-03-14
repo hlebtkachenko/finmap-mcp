@@ -1,32 +1,24 @@
 # Finmap MCP Server
 
-MCP (Model Context Protocol) server for [Finmap](https://finmap.online) — financial management platform. Manage accounts, operations, invoices, and reference data directly from AI assistants like Cursor and Claude.
+MCP server for [Finmap](https://finmap.online), a financial management platform. Work with accounts, operations, invoices, and reference data from Cursor, Claude, or any MCP-compatible client.
 
-## Features
-
-- **Accounts** — list all accounts with balances (bank, cash, cards)
-- **Operations** — search/filter income, expenses, transfers; create and delete
-- **Invoices** — list, create, delete invoices; manage companies and goods
-- **Reference Data** — categories, projects, tags, currencies, suppliers
-- **Raw API Access** — call any Finmap API v2.2 endpoint directly
-
-22 tools total covering the full Finmap API v2.2.
+22 tools covering the full Finmap API v2.2.
 
 ## Requirements
 
 - Node.js 20+
 - Finmap API key (Settings → API in your Finmap account)
 
-## Setup
+## Installation
 
 ```bash
-npm install
+npm ci
 npm run build
 ```
 
 ## Configuration
 
-Add to your MCP config (`~/.cursor/mcp.json` or Claude `settings.json`):
+Add to `~/.cursor/mcp.json`:
 
 ```json
 {
@@ -46,7 +38,7 @@ Add to your MCP config (`~/.cursor/mcp.json` or Claude `settings.json`):
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `FINMAP_API_KEY` | Yes | API key from Finmap settings |
+| `FINMAP_API_KEY` | Yes | API key from Finmap account settings |
 
 ## Tools
 
@@ -60,7 +52,7 @@ Add to your MCP config (`~/.cursor/mcp.json` or Claude `settings.json`):
 | `finmap_projects` | List projects |
 | `finmap_tags` | List tags |
 | `finmap_currencies` | Supported currencies |
-| `finmap_suppliers` | Suppliers / counterparties |
+| `finmap_suppliers` | Suppliers and counterparties |
 | `finmap_project_create` | Create a project |
 | `finmap_tag_create` | Create a tag |
 
@@ -68,40 +60,62 @@ Add to your MCP config (`~/.cursor/mcp.json` or Claude `settings.json`):
 
 | Tool | Description |
 |------|-------------|
-| `finmap_operations_list` | Search/filter operations (by type, date, account, category, project, tag) |
+| `finmap_operations_list` | Search and filter by type, date, account, category, project, or tag |
 | `finmap_operation_detail` | Get operation by ID or external ID |
 | `finmap_income_create` | Create income operation |
 | `finmap_expense_create` | Create expense operation |
 | `finmap_transfer_create` | Create transfer between accounts |
-| `finmap_operation_delete` | Delete operation |
+| `finmap_operation_delete` | Delete an operation |
 
 ### Invoices
 
 | Tool | Description |
 |------|-------------|
-| `finmap_invoices_list` | List/filter invoices (by date, status, confirmation) |
+| `finmap_invoices_list` | List and filter by date, status, or confirmation |
 | `finmap_invoice_detail` | Invoice details by ID |
-| `finmap_invoice_create` | Create invoice |
-| `finmap_invoice_delete` | Delete invoice |
+| `finmap_invoice_create` | Create invoice with goods, company, and client details |
+| `finmap_invoice_delete` | Delete an invoice |
 | `finmap_invoice_companies` | List your company profiles |
-| `finmap_invoice_goods` | Available goods/services |
+| `finmap_invoice_goods` | Available goods and services |
 
-### Advanced
+### Raw API
 
 | Tool | Description |
 |------|-------------|
-| `finmap_api_raw` | Call any Finmap API endpoint directly |
+| `finmap_api_raw` | Call any Finmap API v2.2 endpoint directly |
 
-## API Reference
+## Security
 
-Full Finmap API v2.2 documentation: [api.finmap.online](https://api.finmap.online/)
+- 30-second timeout on all HTTP requests
+- JSON body parsing wrapped in try/catch (prevents crashes on invalid input)
+- Amount fields validated as non-negative numbers
+- Date parameters validated before conversion to timestamps
+- Error responses truncated to 500 characters
+- All parameters validated with Zod schemas
+
+## Architecture
+
+```
+src/
+  index.ts              Entry point, env validation
+  finmap-client.ts      API client (apiKey header auth)
+  tools/
+    reference.ts        Accounts and reference data (9 tools)
+    operations.ts       Financial operations (6 tools)
+    invoices.ts         Invoice management (7 tools)
+```
 
 ## Tech Stack
 
-- TypeScript, MCP SDK (`@modelcontextprotocol/sdk`)
-- Zod schema validation
-- Native `fetch` (no external HTTP dependencies)
+- TypeScript
+- `@modelcontextprotocol/sdk`
+- Zod (schema validation)
+- Native `fetch`
+
+## API Reference
+
+[Finmap API v2.2](https://api.finmap.online/)
 
 ## License
 
-MIT
+[MIT](LICENSE)
