@@ -1,4 +1,6 @@
-# Finmap MCP Server
+# Community Finmap MCP Server
+
+**Not affiliated with Finmap**
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Node.js Version](https://img.shields.io/badge/node-%3E%3D20-brightgreen)
