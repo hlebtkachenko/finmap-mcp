@@ -1,6 +1,6 @@
 # Community Finmap MCP Server
 
-**Not affiliated with Finmap**
+**Not affiliated with Finmap**. Official MCP at https://api.finmap.online/mcp
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Node.js Version](https://img.shields.io/badge/node-%3E%3D20-brightgreen)
