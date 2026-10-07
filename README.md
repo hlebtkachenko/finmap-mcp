@@ -3,16 +3,16 @@
 **Not affiliated with Finmap**. Official MCP at https://api.finmap.online/mcp
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Node.js Version](https://img.shields.io/badge/node-%3E%3D20-brightgreen)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
+![Node.js Version](https://img.shields.io/badge/node-%3E%3D22-brightgreen)
+![TypeScript](https://img.shields.io/badge/TypeScript-7-blue)
 
 MCP server for [Finmap](https://finmap.online), a financial management platform. Work with accounts, operations, invoices, and reference data from any MCP-compatible client.
 
-22 tools covering the full Finmap API v2.2.
+23 tools. They wrap 29 of the 98 operations in the Finmap API v2.2 spec (reads, operation and invoice create/delete, project and tag create); `finmap_api_raw` reaches the rest.
 
 ## Requirements
 
-- Node.js 20+
+- Node.js 22+
 - Finmap API key (Settings → API in your Finmap account)
 
 ## Installation
@@ -95,6 +95,7 @@ With the `FINMAP_API_KEY` environment variable set.
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `FINMAP_API_KEY` | Yes | API key from Finmap account settings |
+| `FINMAP_API_URL` | No | API base URL (default `https://api.finmap.online/v2.2`; tests point it at a fake server) |
 
 ## Tools
 
@@ -108,7 +109,8 @@ With the `FINMAP_API_KEY` environment variable set.
 | `finmap_projects` | List projects |
 | `finmap_tags` | List tags |
 | `finmap_currencies` | Supported currencies |
-| `finmap_suppliers` | Suppliers and counterparties |
+| `finmap_suppliers` | Suppliers (one counterparty type) |
+| `finmap_counterparties` | Counterparties of one type: debitors (customers), creditors, investors, owners, employees, suppliers, tax organisations |
 | `finmap_project_create` | Create a project |
 | `finmap_tag_create` | Create a tag |
 
@@ -116,20 +118,20 @@ With the `FINMAP_API_KEY` environment variable set.
 
 | Tool | Description |
 |------|-------------|
-| `finmap_operations_list` | Search and filter by type, date, account, category, project, or tag |
+| `finmap_operations_list` | Search and filter by type, date (whole UTC days), account, category, project, tag, or counterparty |
 | `finmap_operation_detail` | Get operation by ID or external ID |
-| `finmap_income_create` | Create income operation |
-| `finmap_expense_create` | Create expense operation |
-| `finmap_transfer_create` | Create transfer between accounts |
+| `finmap_income_create` | Create income operation (optional `externalId`) |
+| `finmap_expense_create` | Create expense operation (optional `externalId`) |
+| `finmap_transfer_create` | Create transfer between accounts (optional `externalId`) |
 | `finmap_operation_delete` | Delete an operation |
 
 ### Invoices
 
 | Tool | Description |
 |------|-------------|
-| `finmap_invoices_list` | List and filter by date, status, or confirmation |
+| `finmap_invoices_list` | List and filter by date, payment state (`invoiceStatus`), or confirmation; lines show CONFIRMED/UNCONFIRMED |
 | `finmap_invoice_detail` | Invoice details by ID |
-| `finmap_invoice_create` | Create invoice with goods, company, and client details |
+| `finmap_invoice_create` | Create invoice with goods, company, and client details (optional `externalId`) |
 | `finmap_invoice_delete` | Delete an invoice |
 | `finmap_invoice_companies` | List your company profiles |
 | `finmap_invoice_goods` | Available goods and services |
@@ -138,28 +140,33 @@ With the `FINMAP_API_KEY` environment variable set.
 
 | Tool | Description |
 |------|-------------|
-| `finmap_api_raw` | Call any Finmap API v2.2 endpoint directly |
+| `finmap_api_raw` | Call any Finmap API v2.2 endpoint directly (GET, POST, PATCH, DELETE) |
+
+## Writes and retries
+
+- Creates and deletes return Finmap's processing status. `Processed now` is success, `Stored` and `In the queue for processing` are reported as accepted but pending, `Error` and any unrecognised response are returned as errors.
+- Requests are never retried. A write that times out or gets no answer returns an "outcome unknown" error naming the read tool to check with.
+- Pass `externalId` on creates: on a retry with the same value Finmap answers 409 and nothing is created twice.
+- Every tool carries MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`); deletes and `finmap_api_raw` are marked destructive.
 
 ## Security
 
 - 30-second timeout on all HTTP requests
-- JSON body parsing wrapped in try/catch
+- IDs in URL paths are percent-encoded
 - Amount fields validated as non-negative numbers
-- Date parameters validated before conversion to timestamps
+- Dates must be `YYYY-MM-DD` and are read as UTC days
 - Error responses truncated to 500 characters
 - All parameters validated with Zod schemas
 
-## Architecture
+## Development
 
+```bash
+npm ci
+npm test                # build + end-to-end tests against a fake Finmap API (no credentials)
+npm run check:contract  # validate every tool's request against the Finmap OpenAPI spec
 ```
-src/
-  index.ts              Entry point, env validation
-  finmap-client.ts      API client (apiKey header auth)
-  tools/
-    reference.ts        Accounts and reference data (9 tools)
-    operations.ts       Financial operations (6 tools)
-    invoices.ts         Invoice management (7 tools)
-```
+
+Layout and design: [ARCHITECTURE.md](ARCHITECTURE.md). Contributor rules: [AGENTS.md](AGENTS.md).
 
 ## Tech Stack
 

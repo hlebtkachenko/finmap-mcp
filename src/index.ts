@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { FinmapClient } from "./finmap-client.js";
+import { FinmapClient, DEFAULT_BASE_URL } from "./finmap-client.js";
 import { registerReferenceTools } from "./tools/reference.js";
 import { registerOperationsTools } from "./tools/operations.js";
 import { registerInvoicesTools } from "./tools/invoices.js";
@@ -17,7 +17,7 @@ function env(name: string): string {
   return val;
 }
 
-const client = new FinmapClient(env("FINMAP_API_KEY"));
+const client = new FinmapClient(env("FINMAP_API_KEY"), process.env.FINMAP_API_URL || DEFAULT_BASE_URL);
 const server = new McpServer({ name: "finmap", version: pkg.version });
 
 registerReferenceTools(server, client);

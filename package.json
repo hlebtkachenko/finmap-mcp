@@ -27,7 +27,8 @@
   ],
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test": "tsc && node --test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
