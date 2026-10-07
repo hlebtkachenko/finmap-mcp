@@ -70,15 +70,11 @@ export class FinmapClient {
     return this.request<T>("GET", path, undefined, query);
   }
 
-  post<T = unknown>(path: string, body?: unknown, query?: Record<string, string>) {
-    return this.request<T>("POST", path, body, query);
+  post<T = unknown>(path: string, body?: unknown) {
+    return this.request<T>("POST", path, body);
   }
 
-  patch<T = unknown>(path: string, body?: unknown, query?: Record<string, string>) {
-    return this.request<T>("PATCH", path, body, query);
-  }
-
-  del<T = unknown>(path: string, query?: Record<string, string>) {
-    return this.request<T>("DELETE", path, undefined, query);
+  del<T = unknown>(path: string) {
+    return this.request<T>("DELETE", path);
   }
 }
