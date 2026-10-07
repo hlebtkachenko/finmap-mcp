@@ -17,7 +17,7 @@ export function created(what: string, externalId?: string): string {
 }
 
 /** Start of a YYYY-MM-DD day in UTC, as Unix ms. */
-export function toTimestamp(dateStr: string): number {
+function toTimestamp(dateStr: string): number {
   const ms = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? Date.parse(`${dateStr}T00:00:00Z`) : NaN;
   if (Number.isNaN(ms) || new Date(ms).toISOString().slice(0, 10) !== dateStr) {
     throw new Error(`Invalid date: "${dateStr}". Use YYYY-MM-DD format.`);
@@ -26,7 +26,7 @@ export function toTimestamp(dateStr: string): number {
 }
 
 /** Last millisecond of a YYYY-MM-DD day in UTC. */
-export function toEndOfDay(dateStr: string): number {
+function toEndOfDay(dateStr: string): number {
   return toTimestamp(dateStr) + DAY_MS - 1;
 }
 
