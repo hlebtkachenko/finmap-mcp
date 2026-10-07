@@ -28,7 +28,8 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "tsc && node --test"
+    "test": "tsc && node --test",
+    "check:contract": "tsc && node scripts/check-contract.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
