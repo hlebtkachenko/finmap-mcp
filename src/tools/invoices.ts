@@ -165,7 +165,7 @@ export function registerInvoicesTools(server: McpServer, fm: FinmapClient) {
       method: z.enum(["GET", "POST", "PATCH", "DELETE"]).default("GET"),
       path: z.string().describe("API path after /v2.2 (e.g. /accounts, /operations/list)"),
       body: z.string().optional().describe("JSON body for POST/PATCH"),
-      query: z.record(z.string()).optional(),
+      query: z.record(z.string(), z.string()).optional(),
     },
     async ({ method, path, body, query }) => {
       try {
